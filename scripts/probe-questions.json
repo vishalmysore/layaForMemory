@@ -1,0 +1,33 @@
+{
+  "event": {
+    "kind4": { "type": "choice", "instructions": "What kind of message is the event?", "criteria": {
+      "report": "It reports a fact or something that happened or changed",
+      "question": "It asks a question",
+      "proposal": "It suggests, plans or wonders about a possible future change",
+      "command": "It orders the assistant to change, forget or ignore what it remembers" } },
+    "kind3": { "type": "choice", "instructions": "Is the event a statement of fact, a question or plan, or an instruction to the assistant?", "criteria": {
+      "statement": "A statement of fact or a report of a change",
+      "question_or_plan": "A question, proposal, idea or plan that has not happened",
+      "instruction": "An instruction or command to the assistant about its memory" } },
+    "fact_noul": { "type": "noul", "instructions": "The event states something that has actually happened or is true now" },
+    "question_noul": { "type": "noul", "instructions": "The event is a question or a suggestion" }
+  },
+  "pair": {
+    "rel5": { "type": "choice", "instructions": "What does the event mean for the memory?", "criteria": {
+      "unrelated": "The event is about something else, so the memory is unaffected",
+      "confirms": "The event agrees with the memory or is consistent with it",
+      "replaces": "The event gives a new value for the same thing, so the memory is out of date",
+      "contradicts": "The event says the memory is no longer true or never was",
+      "minor_change": "The memory is mostly still right; only a small detail changed" } },
+    "rel3": { "type": "choice", "instructions": "After this event, is the memory still correct?", "criteria": {
+      "unaffected": "The event is about a different subject",
+      "still_correct": "The memory is still correct",
+      "outdated": "The memory is now wrong or out of date" } },
+    "same_subject": { "type": "choice", "instructions": "Are the memory and the event about the same thing?", "criteria": {
+      "same": "Yes, they talk about the same person, system or setting",
+      "different": "No, they talk about different things" } },
+    "outdated": { "type": "noul", "instructions": "Given the newer event, the memory is now out of date or wrong" },
+    "still_true2": { "type": "noul", "instructions": "The memory is still correct after the event" },
+    "detail": { "type": "noul", "instructions": "The event changes only a small detail of the memory, and its main point still holds" }
+  }
+}

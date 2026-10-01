@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Laya Memory · Evaluate</title>
+<meta name="description" content="How well does Laya decide when a memory is stale? 62 labeled (memory, event) pairs, scored live with adjustable policy thresholds.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%237c3aed'/%3E%3Cpath d='M9 11h14M9 16h9M9 21h14' stroke='white' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E">
+<script src="./coi.js"></script>
+<link rel="stylesheet" href="./styles.css">
+<link rel="stylesheet" href="./memory.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true"><rect width="32" height="32" rx="7" class="logo-bg"/><path d="M9 11h14M9 16h9M9 21h14" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><path d="M20 13.5l5 5" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/></svg>
+    <div>
+      <h1>Laya Memory</h1>
+      <p>How often does Laya get a memory's fate right?</p>
+    </div>
+  </div>
+  <div class="topright">
+    <nav class="nav" aria-label="Pages"><a href="./index.html">Playground</a><a href="./app.html">User actions</a><a href="./eval.html" aria-current="page">Evaluate</a></nav>
+    <div class="modelpill" id="modelPill" role="status"><span class="dot"></span><span id="modelPillText">Models not loaded</span></div>
+  </div>
+</header>
+
+<section class="card modelcard" id="modelCard">
+  <div class="modelrow">
+    <div class="field"><label for="variant">Judge model build (Laya)</label><select id="variant"><option>Reading manifest…</option></select></div>
+    <div class="field"><label for="backend">Backend</label>
+      <select id="backend"><option value="auto">Auto (WebGPU for int4, else WASM)</option><option value="wasm">WASM (CPU)</option><option value="webgpu">WebGPU (int4 build only)</option></select></div>
+    <button id="loadBtn" class="primary" disabled>Load models</button>
+  </div>
+  <div class="progress" id="progress" hidden><div id="progressBar"></div></div>
+  <p class="status" id="status">Judge: <a id="modelLink" target="_blank" rel="noopener"></a>. Embeddings: <a id="embedLink" target="_blank" rel="noopener"></a><span id="embedState"></span>. The scores below come from answers recorded with the int4 build on WebGPU. Load a model and press Run to measure your own build.</p>
+  <div class="badges" id="badges"></div>
+</section>
+
+<div class="layout">
+  <aside class="side">
+    <section class="card">
+      <h2>Policy</h2>
+      <p class="hint">Moving a slider re-scores the stored answers instantly; the model is not called again.</p>
+      <div class="sliders" id="sliders"></div>
+      <div class="btnrow"><button id="resetPolicy" class="ghost">Back to defaults</button></div>
+    </section>
+    <section class="card">
+      <h2>Run</h2>
+      <p class="hint" id="runInfo"></p>
+      <div class="btnrow"><button id="runBtn" class="primary" disabled>Run all 62 cases with the loaded model</button></div>
+      <div class="progress" id="runProg" hidden><div id="runBar"></div></div>
+    </section>
+    <section class="card">
+      <h2>What is scored</h2>
+      <p class="hint"><b>Strict</b>: the verdict equals the label. <b>Lenient</b>: a stale fact (superseded, contradicted, needs review) gets any of those three, a standing fact (confirmed, unrelated) gets either of those two, and questions and commands are recognized. <b>False invalidation</b>: a fact that still holds is marked superseded or contradicted, the one mistake the policy is built to avoid.</p>
+    </section>
+  </aside>
+  <main class="main">
+    <section class="card"><div class="kpis" id="kpis"></div></section>
+    <section class="card">
+      <h2>Confusion matrix <span class="muted" style="font-weight:400;font-size:12.5px">rows: label · columns: verdict</span></h2>
+      <div class="tablewrap" id="cm"></div>
+    </section>
+    <section class="card">
+      <h2>Every case</h2>
+      <div class="filters btnrow"><select id="filter"><option value="all">All cases</option><option value="wrong">Strictly wrong</option><option value="false">False invalidations</option></select></div>
+      <div class="tablewrap" id="cases"></div>
+    </section>
+  </main>
+</div>
+<footer class="foot">The 62 cases are hand-written and fictional (<code>cases.json</code>); they are a smoke test, not a benchmark, and the default thresholds were tuned on them. See the README for a two-fold check. <a href="./NOTICE.txt">Notices and licenses</a>.</footer>
+<script type="module" src="./eval.js"></script>
+</body>
+</html>

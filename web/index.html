@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Laya Memory</title>
+<meta name="description" content="Memory invalidation in the browser: the Laya typed-decision model decides when a stored memory is superseded, contradicted or still true. Memories, user action events and the audit ledger live in IndexedDB. Nothing leaves the page.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%237c3aed'/%3E%3Cpath d='M9 11h14M9 16h9M9 21h14' stroke='white' stroke-width='2.6' stroke-linecap='round'/%3E%3Cpath d='M20 14l5 5' stroke='white' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E">
+<script src="./coi.js"></script>
+<link rel="stylesheet" href="./styles.css">
+<link rel="stylesheet" href="./memory.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true"><rect width="32" height="32" rx="7" class="logo-bg"/><path d="M9 11h14M9 16h9M9 21h14" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><path d="M20 13.5l5 5" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/></svg>
+    <div>
+      <h1>Laya Memory</h1>
+      <p>An invalidation layer for agent memory: stale facts get marked, never rewritten, all in your browser</p>
+    </div>
+  </div>
+  <div class="topright">
+    <nav class="nav" aria-label="Pages"><a href="./index.html" aria-current="page">Playground</a><a href="./app.html">User actions</a><a href="./eval.html">Evaluate</a></nav>
+    <div class="modelpill" id="modelPill" role="status"><span class="dot"></span><span id="modelPillText">Models not loaded</span></div>
+  </div>
+</header>
+
+<section class="card modelcard" id="modelCard">
+  <div class="modelrow">
+    <div class="field">
+      <label for="variant">Judge model build (Laya)</label>
+      <select id="variant"><option>Reading manifest…</option></select>
+    </div>
+    <div class="field">
+      <label for="backend">Backend</label>
+      <select id="backend">
+        <option value="auto">Auto (WebGPU for int4, else WASM)</option>
+        <option value="wasm">WASM (CPU)</option>
+        <option value="webgpu">WebGPU (int4 build only)</option>
+      </select>
+    </div>
+    <button id="loadBtn" class="primary" disabled data-track="load-models">Load models</button>
+  </div>
+  <div class="progress" id="progress" hidden><div id="progressBar"></div></div>
+  <p class="status" id="status">Judge: <a id="modelLink" target="_blank" rel="noopener"></a>. Embeddings: <a id="embedLink" target="_blank" rel="noopener"></a><span id="embedState"></span>. Both download once and are cached by your browser. Until then, the built-in demo plays back answers recorded from the same models.</p>
+  <div class="badges" id="badges"></div>
+</section>
+
+<div class="layout">
+  <aside class="side">
+    <section class="card">
+      <h2>Try the demo</h2>
+      <p class="hint">Stores six facts, then sends six events: an outage, a question, a prompt injection, a database migration, an ownership change and a new rate limit. Watch which facts move.</p>
+      <div class="btnrow">
+        <button id="demoBtn" class="primary" data-track="run-demo">Run the demo</button>
+        <button id="stepBtn" data-track="demo-step">One step</button>
+      </div>
+      <p class="hint" id="demoState"></p>
+    </section>
+
+    <section class="card">
+      <h2>Remember a fact</h2>
+      <div class="field"><label for="memText">Fact (stored verbatim, never edited)</label>
+        <textarea id="memText" rows="2" placeholder="e.g. The team's main database is Postgres"></textarea></div>
+      <div class="row3">
+        <div class="field"><label for="memSource">Source</label><select id="memSource" data-track="mem-source"><option>chat</option><option>wiki</option><option>slack</option><option>docs</option><option>profile</option><option>email</option></select></div>
+        <div class="field"><label for="memKind">Kind</label><select id="memKind" data-track="mem-kind"><option>fact</option><option>preference</option><option>process</option><option>ownership</option><option>schedule</option></select></div>
+        <div class="field"><label for="memTtl">Lease</label><select id="memTtl" data-track="mem-ttl"><option value="">none</option><option value="60">1 minute</option><option value="3600">1 hour</option><option value="86400">1 day</option></select></div>
+      </div>
+      <button id="rememberBtn" data-track="remember">Remember</button>
+    </section>
+
+    <section class="card">
+      <h2>Observe an event</h2>
+      <div class="examples" id="eventChips" aria-label="Example events"></div>
+      <div class="field"><label for="evText">Something that was said or happened</label>
+        <textarea id="evText" rows="2" placeholder="e.g. We migrated the main database to SQLite last Tuesday"></textarea></div>
+      <div class="field"><label for="evSource">Source</label><select id="evSource" data-track="ev-source"><option>slack</option><option>chat</option><option>email</option><option>jira</option><option>github</option><option>changelog</option><option>webhook</option></select></div>
+      <label class="check"><input type="checkbox" id="succ" checked data-track="successor"> Store the event as the successor of a superseded fact</label>
+      <label class="check"><input type="checkbox" id="dry" data-track="dry-run"> Dry run (show verdicts, change nothing)</label>
+      <button id="observeBtn" class="primary" data-track="observe">Observe</button>
+    </section>
+
+    <section class="card">
+      <h2>Recall</h2>
+      <div class="examples" id="queryChips" aria-label="Example questions"></div>
+      <div class="field"><label for="query">Question</label><input type="text" id="query" placeholder="e.g. Which database should a new service use?"></div>
+      <label class="check"><input type="checkbox" id="incReview" data-track="include-review"> Include facts that need review</label>
+      <button id="recallBtn" data-track="recall">Recall</button>
+      <div id="recallOut"></div>
+    </section>
+
+    <section class="card">
+      <h2>Mode and data</h2>
+      <div class="field"><label id="modeLbl">When to check events</label>
+        <div class="seg" role="radiogroup" aria-labelledby="modeLbl">
+          <label><input type="radio" name="mode" value="eager" checked data-track="mode">Eager: on arrival</label>
+          <label><input type="radio" name="mode" value="lazy" data-track="mode">Lazy: at recall</label>
+        </div>
+        <p class="hint">Lazy mode logs events for free and checks them only against the facts a recall is about to return.</p>
+      </div>
+      <div class="btnrow">
+        <button id="sweepBtn" data-track="sweep">Sweep (leases + backlog)</button>
+        <button id="exportBtn" class="ghost" data-track="export">Export</button>
+        <label class="filebtn ghost">Import<input type="file" id="importFile" accept=".json,application/json" hidden></label>
+        <button id="clearBtn" class="ghost" data-track="clear">Clear</button>
+      </div>
+      <p class="hint" id="storeInfo"></p>
+    </section>
+  </aside>
+
+  <main class="main">
+    <section class="card">
+      <h2>Latest check</h2>
+      <div id="report"><p class="placeholder">Observe an event, or run the demo. Each event is classified first (report, question, plan or command); then every similar stored fact is checked against it with four typed questions.</p></div>
+    </section>
+    <section class="card tabcard">
+      <div class="tabs" role="tablist">
+        <button role="tab" aria-selected="true" data-tab="memories" data-track="tab-memories">Memories <span class="count" id="cMem"></span></button>
+        <button role="tab" aria-selected="false" data-tab="review" data-track="tab-review">Review queue <span class="count" id="cRev"></span></button>
+        <button role="tab" aria-selected="false" data-tab="events" data-track="tab-events">Events <span class="count" id="cEv"></span></button>
+        <button role="tab" aria-selected="false" data-tab="ledger" data-track="tab-ledger">Ledger <span class="count" id="cLed"></span></button>
+      </div>
+      <div class="panel" id="tab-memories"></div>
+      <div class="panel" id="tab-review" hidden></div>
+      <div class="panel" id="tab-events" hidden></div>
+      <div class="panel" id="tab-ledger" hidden></div>
+    </section>
+  </main>
+</div>
+
+<footer class="foot">
+  Inspired by <a href="https://github.com/chopratejas/invalidate" target="_blank" rel="noopener">invalidate</a>, rebuilt for the browser on the <a href="https://huggingface.co/VishalMysore/layaForWebTrained" target="_blank" rel="noopener">Laya typed-decisions model</a>. Memories, events and the ledger are stored in this browser's IndexedDB; model files are cached in Cache Storage. Nothing is sent anywhere. <a href="./NOTICE.txt">Notices and licenses</a>.
+</footer>
+<script type="module" src="./playground.js"></script>
+</body>
+</html>

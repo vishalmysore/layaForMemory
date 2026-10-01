@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Laya Memory lab</title>
+<script src="./coi.js"></script>
+</head>
+<body>
+<p>Headless measurement and recording page, driven by <code>scripts/drive.py</code>. Status: <span id="st">idle</span></p>
+<script type="module">
+import { loadLaya } from "./model.js";
+import { loadEmbedder } from "./embedder.js";
+import { encodeVec, compactAnswers } from "./common.js";
+import { QUESTIONS, DEFAULT_POLICY, cosine, eventState, pairState, eventCacheKey, pairCacheKey, EVENT_KEY, PAIR_KEY } from "./governor-core.js";
+const st = (s) => (document.getElementById("st").textContent = s);
+const lab = window.__lab = { laya: null, emb: null, info: null, done: 0 };
+
+lab.load = async (variant = "q4e8", backend = "auto", embed = false) => {
+  const r = await loadLaya({ variant, backend, onStatus: st });
+  lab.laya = r.laya; lab.info = { backend: r.backend, ...r.info };
+  if (embed) lab.emb = await loadEmbedder({ onStatus: st });
+  st("ready"); return lab.info;
+};
+
+/** Experiments: arbitrary event/pair question dicts; returns noul p or choice probabilities per question. */
+lab.probe = async (cases, eventQs, pairQs) => {
+  const flat = (ans) => Object.fromEntries(Object.entries(ans).map(([k, a]) => [k, a.type === "noul" ? a.noul : a.probabilities]));
+  const ev = new Map(), out = []; lab.done = 0;
+  for (const c of cases) {
+    if (!ev.has(c.event)) ev.set(c.event, flat((await lab.laya.systemOne({ event: c.event, source: c.evSource }, eventQs)).answers));
+    const p = flat((await lab.laya.systemOne({ memory: c.memory, memory_source: c.memSource, event: c.event, event_source: c.evSource }, pairQs)).answers);
+    out.push({ id: c.id, expected: c.expected, ev: ev.get(c.event), pair: p });
+    lab.done++; st(`${lab.done}/${cases.length}`);
+  }
+  return out;
+};
+
+/**
+ * Playback data for recorded.json. For each world (eval cases, playground, app): every event text, every memory text
+ * that could exist when it arrives (seeds, plus any event text stored as a successor), and every (memory, event) pair
+ * similar enough to be checked. Also the vectors of every text and query. Answers already in `prev` (the current
+ * recorded.json, same question fingerprints) are reused, so only new texts cost model time.
+ */
+lab.record = async (prev = {}) => {
+  const sc = await (await fetch("./scenarios.json")).json();
+  const cases = (await (await fetch("./cases.json")).json()).cases;
+  const fill = (t, o) => t.replace(/\{(\w+)\}/g, (_, k) => o[k]);
+  const pairs = [], events = new Map(), texts = new Set();
+  const addEv = (e) => { events.set(eventCacheKey(e), e); texts.add(e.text); };
+  // eval: exactly the labeled pairs
+  for (const c of cases) { addEv({ text: c.event, source: c.evSource }); pairs.push([{ text: c.memory, source: c.memSource }, { text: c.event, source: c.evSource }, true]); texts.add(c.memory); }
+  // worlds: all events x all possible memories, filtered by similarity below
+  const worlds = [];
+  {
+    const p = sc.playground;
+    const evs = p.events.map((e) => ({ text: e.text, source: e.source }));
+    worlds.push({ mems: [...p.memories.map((m) => ({ text: m.text, source: m.source })), ...evs], evs, queries: p.queries });
+  }
+  {
+    const a = sc.app, evs = [];
+    for (const f of a.fields) for (const o of f.options) for (const n of f.options) if (o !== n) evs.push({ text: fill(f.event, { old: o, new: n }), source: "settings" });
+    for (const m of a.messages) evs.push({ text: m.text, source: m.source });
+    const seeds = [...a.fields.map((f) => ({ text: fill(f.memory, { v: f.initial }), source: "profile" })), ...a.seedMemories.map((m) => ({ text: m.text, source: m.source }))];
+    worlds.push({ mems: [...seeds, ...evs], evs, queries: a.queries });
+  }
+  for (const w of worlds) { w.mems.forEach((m) => texts.add(m.text)); w.evs.forEach(addEv); w.queries.forEach((q) => texts.add(q)); }
+  st("embedding " + texts.size);
+  const list = [...texts], vecs = await lab.emb.embed(list);
+  const V = new Map(list.map((t, i) => [t, vecs[i]]));
+  for (const w of worlds) for (const e of w.evs) for (const m of w.mems) {
+    if (m.text === e.text) continue;
+    if (cosine(V.get(m.text), V.get(e.text)) >= DEFAULT_POLICY.minSim) pairs.push([m, e, false]);
+  }
+  const answers = {}; let i = 0; const t0 = performance.now();
+  const evList = [...events.values()];
+  for (const e of evList) { const k = eventCacheKey(e); answers[k] = prev[k] || compactAnswers((await lab.laya.systemOne(eventState(e), QUESTIONS.event)).answers); st(`events ${++i}/${evList.length}`); }
+  i = 0;
+  for (const [m, e] of pairs) {
+    const k = pairCacheKey(m, e);
+    if (!answers[k]) answers[k] = prev[k] || compactAnswers((await lab.laya.systemOne(pairState(m, e), QUESTIONS.pair)).answers);
+    st(`pairs ${++i}/${pairs.length}`);
+  }
+  return {
+    version: 1,
+    note: "Laya answers and MiniLM vectors recorded by scripts/drive.py record, so the pages can play the built-in scenarios before any download. Keys are question fingerprint | source | text.",
+    model: { variant: lab.info.variant, backend: lab.info.backend, source: lab.info.source, recordedAt: new Date().toISOString(), seconds: Math.round((performance.now() - t0) / 1000), eventKey: EVENT_KEY, pairKey: PAIR_KEY },
+    vectors: Object.fromEntries(list.map((t) => [t, encodeVec(V.get(t))])),
+    answers,
+  };
+};
+st("loaded");
+</script>
+</body>
+</html>

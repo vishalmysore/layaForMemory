@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Laya Memory · User actions</title>
+<meta name="description" content="A small assistant app whose memory updates itself from what the user does: every action is logged to IndexedDB, and Laya decides which remembered facts the action makes stale.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%237c3aed'/%3E%3Cpath d='M9 11h14M9 16h9M9 21h14' stroke='white' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E">
+<script src="./coi.js"></script>
+<link rel="stylesheet" href="./styles.css">
+<link rel="stylesheet" href="./memory.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true"><rect width="32" height="32" rx="7" class="logo-bg"/><path d="M9 11h14M9 16h9M9 21h14" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><path d="M20 13.5l5 5" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/></svg>
+    <div>
+      <h1>Laya Memory</h1>
+      <p>User actions become events; events keep the assistant's memory honest</p>
+    </div>
+  </div>
+  <div class="topright">
+    <nav class="nav" aria-label="Pages"><a href="./index.html">Playground</a><a href="./app.html" aria-current="page">User actions</a><a href="./eval.html">Evaluate</a></nav>
+    <div class="modelpill" id="modelPill" role="status"><span class="dot"></span><span id="modelPillText">Models not loaded</span></div>
+  </div>
+</header>
+
+<section class="card modelcard" id="modelCard">
+  <div class="modelrow">
+    <div class="field"><label for="variant">Judge model build (Laya)</label><select id="variant"><option>Reading manifest…</option></select></div>
+    <div class="field"><label for="backend">Backend</label>
+      <select id="backend"><option value="auto">Auto (WebGPU for int4, else WASM)</option><option value="wasm">WASM (CPU)</option><option value="webgpu">WebGPU (int4 build only)</option></select></div>
+    <button id="loadBtn" class="primary" disabled data-track="load-models">Load models</button>
+  </div>
+  <div class="progress" id="progress" hidden><div id="progressBar"></div></div>
+  <p class="status" id="status">Judge: <a id="modelLink" target="_blank" rel="noopener"></a>. Embeddings: <a id="embedLink" target="_blank" rel="noopener"></a><span id="embedState"></span>. The settings and example messages below play back recorded answers, so they work before any download. Typing your own message needs the models.</p>
+  <div class="badges" id="badges"></div>
+</section>
+
+<div class="appgrid">
+  <div class="side">
+    <div class="phone">
+      <div class="bar0"><span id="appTitle">Assistant</span><button class="mini" id="resetBtn" style="color:inherit;border-color:currentColor" data-track="reset-app">Reset</button></div>
+      <div class="sect"><h3>Settings</h3><div id="settings"></div>
+        <p class="hint">Each change is stored as an event in IndexedDB and checked against what the assistant remembers.</p></div>
+      <div class="sect"><h3>Tell the assistant</h3>
+        <div class="examples" id="msgChips"></div>
+        <div class="chat"><input type="text" id="msg" placeholder="Say something, or “Remember …”"><button id="sendBtn" class="primary" data-track="send">Send</button></div>
+      </div>
+      <div class="sect"><h3>Ask the assistant</h3>
+        <div class="examples" id="askChips"></div>
+        <div class="chat"><input type="text" id="ask" placeholder="e.g. Where does the user live?"><button id="askBtn" data-track="ask">Ask</button></div>
+        <div id="answer"></div>
+      </div>
+    </div>
+  </div>
+  <main class="main">
+    <section class="card">
+      <h2>Activity</h2>
+      <p class="hint">Every action, newest first. Clicks and page visits are logged only; actions that say something about the world are observed, and Laya's verdicts are shown under them.</p>
+      <ul class="feed" id="feed"></ul>
+    </section>
+    <section class="card">
+      <h2>Latest check</h2>
+      <div id="report"><p class="placeholder">Change a setting to see Laya check the assistant's memory.</p></div>
+    </section>
+    <section class="card tabcard">
+      <div class="tabs" role="tablist">
+        <button role="tab" aria-selected="true" data-tab="memories" data-track="tab-memories">What the assistant remembers <span class="count" id="cMem"></span></button>
+        <button role="tab" aria-selected="false" data-tab="review" data-track="tab-review">Review queue <span class="count" id="cRev"></span></button>
+        <button role="tab" aria-selected="false" data-tab="ledger" data-track="tab-ledger">Ledger <span class="count" id="cLed"></span></button>
+      </div>
+      <div class="panel" id="tab-memories"></div>
+      <div class="panel" id="tab-review" hidden></div>
+      <div class="panel" id="tab-ledger" hidden></div>
+    </section>
+  </main>
+</div>
+<footer class="foot">
+  Stored in this browser only (IndexedDB database <code>laya-memory-app</code>). Inspired by <a href="https://github.com/chopratejas/invalidate" target="_blank" rel="noopener">invalidate</a>. <a href="./NOTICE.txt">Notices and licenses</a>.
+</footer>
+<script type="module" src="./app.js"></script>
+</body>
+</html>
