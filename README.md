@@ -4,7 +4,7 @@ An invalidation layer for agent memory that runs entirely in the browser tab. Fa
 
 It follows the design of [chopratejas/invalidate](https://github.com/chopratejas/invalidate), rebuilt for the browser: memories, every user action event and an append-only audit ledger live in **IndexedDB**, the models are cached in **Cache Storage**, and inference runs on WebGPU or WASM. There is no server, no API key and no cost per check, and nothing leaves the page.
 
-**Live demo:** https://vishalmysore.github.io/layaForMemory/
+**Live demo:** https://vishalmysore.github.io/layaForMemory/ · **Article:** [Stale Memories: Teaching an AI Agent to Forget, Inside Your Browser](docs/article.md)
 
 ## Pages
 
